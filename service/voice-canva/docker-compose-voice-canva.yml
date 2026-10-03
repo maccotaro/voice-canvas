@@ -1,0 +1,43 @@
+version: "3.8"
+
+# 声のCanva 推論サービス（Seed-VC + 意味軸デザイン）
+# 単体起動用の compose。
+#
+# 手順:
+#   1. アンカー資産（voice_canva/ , data/anchor_embeddings.npz , data/spk*.wav ,
+#      data/tgt_*_long.wav , features/*.npz）を assets ボリュームに配置
+#   2. docker compose -f docker-compose-voice-canva.yml up -d voice-canva
+#   3. フロント(BFF)から http://voice-canva:8770 へプロキシ
+#
+# Health: curl http://localhost:8770/health
+services:
+  voice-canva:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: voice-canva
+    restart: "no"
+    shm_size: "2gb"
+    ports:
+      - "8770:8770"   # HTTP API（意味軸デザイン → Seed-VC 生成）
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+    environment:
+      - NVIDIA_VISIBLE_DEVICES=all
+      - VOICE_CANVA_PROJ=/assets/voice-canva
+      - VOICE_CANVA_DEVICE=cuda
+      - VOICE_CANVA_STEPS=30
+    volumes:
+      # voice-canva リポ資産（voice_canva パッケージ・data・features）。
+      - voice-canva-assets:/assets/voice-canva
+      # HuggingFace キャッシュ（Seed-VC/whisper/bigvgan 等）を永続化
+      - hf-cache:/root/.cache/huggingface
+
+volumes:
+  voice-canva-assets:
+  hf-cache:

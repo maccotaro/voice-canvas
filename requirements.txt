@@ -1,0 +1,19 @@
+# 研究用の旧 MVP（WORLD ボコーダ + Gradio。voice_canva/app.py）の依存。設計メモは docs/legacy/memo.md §3。
+# いまのアプリ（Web + 推論サービス）の依存は service/voice-canva/requirements.txt と web/package.json。
+
+# F0 / スペクトル包絡 / 非周期性の分析・再合成
+pyworld>=0.3.0
+# フォルマント / jitter / shimmer / HNR / スペクトル傾斜の抽出
+praat-parselmouth>=0.4.3
+# 日本語 G2P（音素化）
+pyopenjtalk>=0.3.0
+# 音声 I/O・リサンプル
+librosa>=0.10.0
+soundfile>=0.12.0
+# 相関 / PCA（内部用）
+scikit-learn>=1.2.0
+# 数値・統計
+numpy>=1.23.0
+scipy>=1.9.0
+# スライダー UI + 即試聴
+gradio>=4.0.0

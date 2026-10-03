@@ -1,0 +1,332 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>声のCanva — 仕組み解説</title>
+<style>
+  :root{
+    --bg:#0b0d17; --panel:#141728; --panel2:#1b1f36; --line:#2a2f4d;
+    --txt:#e8eaf2; --sub:#9aa0c0; --accent:#7c5cff; --accent2:#27e0c4;
+    --warn:#ff5c7c; --ok:#27e0a0; --chip:#2a2f4d;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:linear-gradient(180deg,#0b0d17,#0e1020);color:var(--txt);
+    font-family:-apple-system,"Hiragino Kaku Gothic ProN","Noto Sans JP",sans-serif;line-height:1.75}
+  .wrap{max-width:980px;margin:0 auto;padding:48px 24px 96px}
+  header h1{font-size:32px;margin:0 0 6px;letter-spacing:.02em}
+  header p{color:var(--sub);margin:0}
+  .badge{display:inline-block;background:var(--accent);color:#fff;border-radius:6px;
+    padding:2px 10px;font-size:13px;margin-left:8px;vertical-align:middle}
+  h2{font-size:22px;margin:48px 0 14px;padding-left:12px;border-left:4px solid var(--accent)}
+  h3{font-size:17px;margin:26px 0 8px;color:#c9cdf0}
+  p{margin:8px 0}
+  .sub{color:var(--sub)}
+  .panel{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:20px 22px;margin:16px 0}
+  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+  @media(max-width:720px){.grid2{grid-template-columns:1fr}}
+  .card{background:var(--panel2);border:1px solid var(--line);border-radius:12px;padding:14px 16px}
+  .card h4{margin:0 0 6px;font-size:15px}
+  table{width:100%;border-collapse:collapse;margin:10px 0;font-size:14px}
+  th,td{border:1px solid var(--line);padding:9px 11px;text-align:left;vertical-align:top}
+  th{background:var(--panel2);color:#c9cdf0;font-weight:600}
+  code{background:#0c0e1a;border:1px solid var(--line);border-radius:5px;padding:1px 6px;font-size:13px;color:#a8e6ff}
+  .chip{display:inline-block;background:var(--chip);border-radius:20px;padding:2px 11px;font-size:12px;margin:2px 3px}
+  .ok{color:var(--ok)} .warn{color:var(--warn)} .acc{color:var(--accent2)}
+  .pill-ok{background:rgba(39,224,160,.12);color:var(--ok);border:1px solid rgba(39,224,160,.3);border-radius:20px;padding:1px 10px;font-size:12px}
+  .pill-warn{background:rgba(255,92,124,.12);color:var(--warn);border:1px solid rgba(255,92,124,.3);border-radius:20px;padding:1px 10px;font-size:12px}
+  /* flow */
+  .flow{display:flex;align-items:stretch;gap:0;flex-wrap:wrap;margin:18px 0}
+  .step{flex:1;min-width:150px;background:var(--panel2);border:1px solid var(--line);border-radius:12px;
+    padding:14px;position:relative;text-align:center}
+  .step .n{position:absolute;top:-10px;left:-10px;width:24px;height:24px;border-radius:50%;
+    background:var(--accent);color:#fff;font-size:13px;line-height:24px;font-weight:700}
+  .step b{display:block;margin-bottom:4px;font-size:14px}
+  .step span{font-size:12.5px;color:var(--sub)}
+  .arrow{align-self:center;color:var(--accent);font-size:22px;padding:0 6px}
+  .note{background:rgba(124,92,255,.08);border:1px solid rgba(124,92,255,.35);border-radius:10px;padding:12px 16px;margin:14px 0;font-size:14px}
+  .x{color:var(--warn);font-weight:700}.v{color:var(--ok);font-weight:700}
+  ul{margin:8px 0 8px 4px;padding-left:20px}
+  li{margin:4px 0}
+  .small{font-size:13px;color:var(--sub)}
+  .legend{font-size:12.5px;color:var(--sub);margin-top:8px}
+  .kv{display:flex;gap:10px;margin:6px 0;font-size:14px}
+  .kv .k{color:var(--accent2);min-width:90px}
+  svg text{fill:var(--txt)}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header>
+  <h1>声のCanva <span class="badge">仕組み解説</span></h1>
+  <p>声のデザインを、もっと自由に。— 参照音声から声をデザイン／ミックスする仕組みの全体像</p>
+</header>
+
+<!-- 0 -->
+<h2>0. 一言でいうと</h2>
+<div class="panel">
+  <p><b class="acc">「誰かの声（参照）を素材に、意味のあるスライダーで“理想の声”をデザインし、その声で喋らせる」</b>ツールです。</p>
+  <p>内部では <b>音声変換 (Voice Conversion, VC)</b> を使い、<b>「何を喋るか（内容）」</b>と<b>「どんな声か（声質）」</b>を分離して扱います。声質は実在話者（アンカー）を混ぜ合わせて作るため、<b>実在しない中間の声</b>も生成できます。</p>
+</div>
+
+<!-- 1 -->
+<h2>1. 音声変換 (VC) の基本 — 内容と声質の分離</h2>
+<div class="panel">
+  <p>VC は入力音声の<b>「内容（言葉・タイミング・抑揚）」を保ったまま、声質だけを別人に置き換える</b>技術です。本システムは <b class="acc">Seed-VC</b>（多言語学習のゼロショットVC）を採用しています。</p>
+
+  <div class="flow">
+    <div class="step"><span class="n">1</span><b>入力 (Source)</b><span>キャリア音声<br>＝「何を喋るか」</span></div>
+    <div class="arrow">→</div>
+    <div class="step"><span class="n">2</span><b>内容抽出</b><span>WavLM で言語内容<br>（声質を捨てる）</span></div>
+    <div class="arrow">→</div>
+    <div class="step"><span class="n">3</span><b>声質注入</b><span>参照から話者埋め込み<br>(campplus) を抽出</span></div>
+    <div class="arrow">→</div>
+    <div class="step"><span class="n">4</span><b>再生成</b><span>拡散モデルが<br>ゼロから合成</span></div>
+    <div class="arrow">→</div>
+    <div class="step"><span class="n">5</span><b>出力</b><span>クリーンな<br>別人の声</span></div>
+  </div>
+
+  <div class="note">
+    <b>重要な性質：</b>出力は参照の声質を使って<b>ゼロから作り直される</b>ため、<b>入力の汚さ（ノイズ・息）は出力に乗りません</b>。
+    実際、息っぽい汚い入力でも、クリーンな別人の声に変換できることを確認しました。
+    （＝ 入力は「内容」、品質はモデルが担保）
+  </div>
+
+  <h3>なぜ Seed-VC か（エンジン比較）</h3>
+  <table>
+    <tr><th>エンジン</th><th>結果</th><th>判定</th></tr>
+    <tr><td>WORLD（信号処理モーフ）</td><td>機械的・品質に天井。下流に渡しても救えない</td><td><span class="pill-warn">却下</span></td></tr>
+    <tr><td>FreeVC（英語コーパス学習）</td><td>クリーンだが「外国人が日本語を喋る」訛りが出る</td><td><span class="pill-warn">却下</span></td></tr>
+    <tr><td>kNN-VC</td><td>やや日本語寄りだが音が汚い</td><td><span class="pill-warn">却下</span></td></tr>
+    <tr><td><b>Seed-VC（多言語学習）</b></td><td><b>クリーン・日本語の発音が自然</b></td><td><span class="pill-ok">採用</span></td></tr>
+  </table>
+</div>
+
+<!-- 2 -->
+<h2>2. 声のミックス — 実在しない「中間の声」を作る</h2>
+<div class="panel">
+  <p>2人（以上）の実在話者（アンカー）の<b>間を補間</b>して、どちらでもない新しい声を作ります。
+  ポイントは<b class="warn">「音の素材を混ぜる」のではなく「声の表現を混ぜる」</b>ことです。素材を混ぜると濁ります。</p>
+
+  <h3>試した方式と結論</h3>
+  <table>
+    <tr><th>方式</th><th>内容</th><th>結果</th></tr>
+    <tr><td>話者埋め込みのみ補間</td><td>campplusベクトルをlerp</td><td><span class="x">✗</span> 変化が弱い（プロンプトに支配され3つ同じに聞こえる）</td></tr>
+    <tr><td>出力mel線形補間</td><td>2話者の出力melを平均</td><td><span class="x">✗</span> 中間が<b>掠れる</b>（F0の異なる櫛が干渉）</td></tr>
+    <tr><td><b>連結参照で1回生成</b></td><td>2話者の参照を割合連結→1回生成</td><td><span class="v">✓</span> 櫛が1つで掠れ最小。端点は実在話者に到達</td></tr>
+    <tr><td><b>埋め込み線形補間＋両声プロンプト</b></td><td>埋め込みをlerp＋連結プロンプト</td><td><span class="v">✓</span> 中間制御が滑らか</td></tr>
+  </table>
+
+  <div class="note">
+    <b>なぜ「mel平均」は掠れるのか：</b>
+    melスペクトログラムは倍音の<b>櫛状構造</b>を持ちます。F0（声の高さ）が違う2つを平均すると、
+    2本の櫛が重なって<b>干渉パターン</b>になり、「掠れ／二重声」として聞こえます。
+    一方、<b>1回の生成</b>でブレンド埋め込みから<b>1つの整合した声</b>を作れば、櫛は1本になり掠れません。
+  </div>
+</div>
+
+<!-- 3 -->
+<h2>3. 掠れ・震えが起きない仕組み</h2>
+<div class="panel">
+  <p>開発中に「掠れ」「細かい震え」が出ましたが、<b>原因は手法ではなく“素材”</b>でした。</p>
+
+  <div class="grid2">
+    <div class="card"><h4 class="warn">掠れ（かすれ）</h4>
+      <p class="small">原因：入力素材の<b>息っぽさ</b>（歌声ステムの息成分）＋ mel平均の櫛干渉。<br>
+      対策：クリーンな話し声を使う＋連結参照方式。</p></div>
+    <div class="card"><h4 class="warn">細かい震え</h4>
+      <p class="small">原因：ターゲットの<b>ビブラート</b>（歌声のF0変動）。Seed-VCは話者の同一性から声を再生成するため、歌声らしい揺れを作ってしまう。<br>
+      対策：安定した話し声をアンカーにする。</p></div>
+  </div>
+
+  <div class="note">
+    <b>根本原因：</b>当初の素材は「声のみ抽出したつもりが<b>曲が混入</b>した楽曲ステム（歌声）」でした。
+    これが掠れ・震え・訛りの主因。<br>
+    <b>解決：</b><b class="ok">クリーンな話し声（Common Voice 日本語・CC0）</b>に差し替え、各話者から
+    <b>安定区間（高HNR・低F0変動＝落ち着いて明瞭に喋っている所）</b>を自動抽出。
+    最大音量で選ぶと“叫び”を拾うため、<b>安定性で選ぶ</b>のがコツ。これで震え・端点の掠れは解消しました。
+  </div>
+
+  <h3>「DSPで素材を磨く」が効かない理由</h3>
+  <p class="small">WORLDでF0平滑化・脱息しても、Seed-VCは<b>話者の“指紋（埋め込み）”からゼロ生成</b>するため、表面を均しても指紋は「歌声タイプ」のまま。
+  ＝<b>素材の前処理では直らず、素材そのもの（実際の話し声）が要る</b>、と判明しました。</p>
+</div>
+
+<!-- 4 -->
+<h2>4. スライダー（意味軸）の仕組み</h2>
+<div class="panel">
+  <p>UIの各スライダーは「年齢感」「性別」など<b>意味の分かる軸</b>です。これを裏側で<b>アンカーの重み</b>に翻訳します。
+  「軸→重み」にすることで、検証済みの<b>クリーンなブレンド</b>がそのまま使えます。</p>
+
+  <div class="flow">
+    <div class="step"><span class="n">1</span><b>スライダー</b><span>意味軸の値<br>(0〜100%)</span></div>
+    <div class="arrow">→</div>
+    <div class="step"><span class="n">2</span><b>目標属性</b><span>各軸を音響特徴の<br>目標値に変換</span></div>
+    <div class="arrow">→</div>
+    <div class="step"><span class="n">3</span><b>重み算出</b><span>60アンカーから<br>目標に近い4人を<br>softmax重みで</span></div>
+    <div class="arrow">→</div>
+    <div class="step"><span class="n">4</span><b>ブレンド</b><span>埋め込み=Σ重み×アンカー<br>＋近傍アンカー連結プロンプト</span></div>
+    <div class="arrow">→</div>
+    <div class="step"><span class="n">5</span><b>Seed-VC</b><span>キャリアを<br>その声で生成</span></div>
+  </div>
+
+  <div class="kv"><span class="k">数式(直感)</span><span>目標属性 <code>t</code> に対し、各アンカーの属性 <code>z<sub>i</sub></code> との距離で重み <code>w<sub>i</sub> = softmax(−‖z<sub>i</sub>−t‖²)</code>。声 = <code>Σ w<sub>i</sub>·埋め込み<sub>i</sub></code>。</span></div>
+
+  <h3>軸と音響特徴の対応</h3>
+  <table>
+    <tr><th>軸</th><th>端点</th><th>対応する音響特徴</th><th>状態</th></tr>
+    <tr><td>年齢感</td><td>若い ⇄ 年配</td><td>F0・フォルマント（複合）</td><td><span class="pill-warn">実測近似</span></td></tr>
+    <tr><td>性別</td><td>男性的 ⇄ 女性的</td><td>F0 ＋ フォルマント</td><td><span class="pill-ok">実測</span></td></tr>
+    <tr><td>声の高さ</td><td>低い ⇄ 高い</td><td>F0（基本周波数）</td><td><span class="pill-ok">実測</span></td></tr>
+    <tr><td>体格</td><td>太い ⇄ 細い</td><td>フォルマント（声道長）</td><td><span class="pill-ok">実測</span></td></tr>
+    <tr><td>ハスキー度</td><td>クリア ⇄ ハスキー</td><td>shimmer・HNR（息/かすれ）</td><td><span class="pill-ok">実測</span></td></tr>
+    <tr><td>明瞭度</td><td>こもる ⇄ 明瞭</td><td>HNR（調波/雑音比）</td><td><span class="pill-ok">実測</span></td></tr>
+    <tr><td>温かさ</td><td>クール ⇄ ウォーム</td><td>スペクトル傾斜</td><td><span class="pill-ok">実測</span></td></tr>
+    <tr><td>粗さ</td><td>なめらか ⇄ ガラガラ</td><td>jitter・shimmer</td><td><span class="pill-ok">実測</span></td></tr>
+  </table>
+  <p class="legend">
+    <span class="pill-ok">実測</span>＝音響特徴から自動で軸を定義（ラベル不要・すぐ使える）。
+    <span class="pill-warn">実測近似</span>＝複合で近似（要検証）。
+    ※「知性・親近感」など主観軸は、客観指標がなくアンカー話者への人手ラベルが必要なため現状は非搭載。
+  </p>
+
+  <div class="note">
+    <b>相関の注意（memo §2.1）：</b>性別・高さ・体格・年齢感は F0／フォルマントを共有するため<b>互いに相関</b>します。
+    本方式は「目標に近いアンカーを選ぶ」ので破綻しにくい一方、<b>極端で矛盾する組合せ</b>（例：声は超高いのに体格は極太）は近いアンカーが存在せず、効きが鈍ります。
+  </div>
+</div>
+
+<!-- 5 -->
+<h2>5. 話者埋め込み空間 — 60話者の「声のベクトル」</h2>
+<div class="panel">
+  <p>本システムの中核は <b class="acc">「声を数値ベクトルとして扱う」</b>ことです。話者エンコーダ
+  <code>campplus</code>（話者照合ネットワーク）は、ある声を <b>192次元のベクトル</b>に変換します。
+  これは指紋のように<b>「その人らしさ（声質）」を要約した座標</b>で、似た声どうしは近くに、
+  異なる声は遠くに配置されます。</p>
+
+  <p>アンカー（Common Voice の性別×年代12枠×3人＝36人と、JVNV の4人×6感情＝24人、計60人）は、この192次元空間に散らばった<b>60個の点</b>になります
+  （<code>data/anchor_embeddings.npz</code> に事前計算して保存）。
+  下図は概念図（実際は192次元）。生成したい声は、これらの点の<b>重み付き平均（=空間内の1点）</b>として表します。</p>
+
+  <div style="text-align:center;margin:8px 0">
+  <svg width="520" height="300" viewBox="0 0 520 300" style="max-width:100%">
+    <defs>
+      <radialGradient id="g1" cx="50%" cy="50%" r="50%">
+        <stop offset="0%" stop-color="#7c5cff" stop-opacity="0.9"/>
+        <stop offset="100%" stop-color="#7c5cff" stop-opacity="0.15"/>
+      </radialGradient>
+    </defs>
+    <rect x="0" y="0" width="520" height="300" fill="#11142400" />
+    <!-- axes -->
+    <line x1="40" y1="260" x2="490" y2="260" stroke="#2a2f4d" stroke-width="1.5"/>
+    <line x1="40" y1="260" x2="40" y2="30" stroke="#2a2f4d" stroke-width="1.5"/>
+    <text x="470" y="282" font-size="12" fill="#9aa0c0">声の高さ →</text>
+    <text x="14" y="40" font-size="12" fill="#9aa0c0" transform="rotate(-90 14,40)">声道長 →</text>
+    <!-- anchors (conceptual scatter) -->
+    <g fill="#27e0c4">
+      <circle cx="90" cy="220" r="6"/><circle cx="120" cy="180" r="6"/>
+      <circle cx="160" cy="235" r="6"/><circle cx="200" cy="150" r="6"/>
+      <circle cx="230" cy="200" r="6"/><circle cx="260" cy="120" r="6"/>
+      <circle cx="300" cy="180" r="6"/><circle cx="330" cy="90" r="6"/>
+      <circle cx="360" cy="160" r="6"/><circle cx="390" cy="110" r="6"/>
+      <circle cx="150" cy="100" r="6"/><circle cx="420" cy="200" r="6"/>
+      <circle cx="240" cy="240" r="6"/><circle cx="280" cy="60" r="6"/>
+      <circle cx="110" cy="130" r="6"/><circle cx="430" cy="140" r="6"/>
+      <circle cx="350" cy="220" r="6"/><circle cx="190" cy="80" r="6"/>
+    </g>
+    <!-- blended point -->
+    <circle cx="270" cy="150" r="13" fill="url(#g1)" stroke="#fff" stroke-width="1.5"/>
+    <text x="288" y="146" font-size="12" fill="#e8eaf2">デザインした声</text>
+    <text x="288" y="162" font-size="11" fill="#9aa0c0">= Σ 重み × アンカー</text>
+    <text x="402" y="100" font-size="11" fill="#27e0c4">●18アンカー</text>
+  </svg>
+  </div>
+
+  <h3>声を「混ぜる」＝ベクトルの加重平均</h3>
+  <div class="kv"><span class="k">ブレンド</span><span>デザイン声のベクトル <code>e = Σ<sub>i</sub> w<sub>i</sub> · e<sub>i</sub></code>（<code>e<sub>i</sub></code>＝各アンカーの192次元ベクトル、<code>w<sub>i</sub></code>＝重み、<code>Σw<sub>i</sub>=1</code>）</span></div>
+  <div class="kv"><span class="k">中間の声</span><span>2話者なら <code>e = (1−α)·e<sub>A</sub> + α·e<sub>B</sub></code>。α=0.5 で「2人のちょうど中間」の新しい話者。</span></div>
+  <p class="small">campplus 空間は話者同一性に対して<b>概ね線形</b>なため、ベクトルの中間点も「破綻した平均」ではなく
+  <b>1人の整合した中間話者</b>として成立します。これが<b>実在しない中間の声</b>を作れる理論的根拠です。</p>
+
+  <div class="note">
+    <b>なぜ「ベクトル混合」は良くて「音の混合」はダメか：</b>
+    音（波形・mel）を直接混ぜると2つの声が重なって濁ります（§2）。
+    一方、<b>同一性を要約したベクトル</b>を混ぜてから<b>1つの声として生成し直す</b>と、
+    干渉は起きず、滑らかな中間が得られます。
+  </div>
+
+  <h3>スライダー → 重みの数理</h3>
+  <p class="small">各アンカーの音響属性（F0・フォルマント・HNR等）を z 正規化し、軸ごとの座標 <code>z<sub>i,軸</sub></code> を得ます。
+  スライダー値 <code>s∈[0,1]</code> は目標座標 <code>t<sub>軸</sub> = (2s−1)·σ幅</code> に変換。各アンカーの重みは</p>
+  <div class="kv"><span class="k">重み</span><span><code>w<sub>i</sub> = softmax( − Σ<sub>軸</sub> (z<sub>i,軸</sub> − t<sub>軸</sub>)² / 温度 )</code></span></div>
+  <p class="small">＝「目標に近いアンカーほど大きい重み」。これにより、意味軸の指定が<b>その属性を持つ実在話者の混合</b>へと翻訳されます。</p>
+</div>
+
+<!-- 6 -->
+<h2>6. 各コンポーネントの理論</h2>
+<div class="panel">
+  <p>Seed-VC は4つの部品の組合せです。<b>「内容を取り出す」「声質を取り出す」「混ぜて作り直す」「波形にする」</b>の分業です。</p>
+  <div class="grid2">
+    <div class="card"><h4>① 内容エンコーダ <span class="acc">WavLM</span></h4>
+      <p class="small">大量の音声で自己教師あり学習された表現器。入力音声から<b>言語的内容（音素・タイミング）</b>を、
+      話者性を薄めた形で抽出。言語に依存しにくいため<b>日本語でも内容が保たれる</b>。
+      （FreeVCの「外人っぽさ」は内容でなく<b>生成器</b>が英語学習だったのが原因）。</p></div>
+    <div class="card"><h4>② 話者エンコーダ <span class="acc">campplus</span></h4>
+      <p class="small">話者照合（本人確認）用に学習されたネットワーク。声を<b>192次元の話者ベクトル</b>へ。
+      「誰の声か」だけを凝縮するので、<b>内容に依らず同じ人なら近いベクトル</b>になる。これがブレンドの対象。</p></div>
+    <div class="card"><h4>③ 生成器 <span class="acc">Flow-Matching 拡散 (DiT)</span></h4>
+      <p class="small">内容ベクトル＋話者ベクトル＋参照melを条件に、<b>ノイズから mel を反復的に生成</b>する拡散系モデル
+      （条件付きフローマッチング, Diffusion Transformer）。1回の生成で<b>1つの整合した声</b>を作るため、
+      mel平均のような干渉（掠れ）が起きない。反復回数＝拡散ステップ（多いほど高品質・低速）。</p></div>
+    <div class="card"><h4>④ ボコーダ <span class="acc">BigVGAN</span></h4>
+      <p class="small">生成された mel スペクトログラムを<b>実際の波形</b>へ変換する高品質ニューラルボコーダ。</p></div>
+  </div>
+
+  <h3>参照 mel の役割（in-context な条件付け）</h3>
+  <p class="small">参照音声の mel は、生成器に対して<b>「こういう声で喋れ」という手本（プロンプト）</b>として前置きされます
+  （生成後に手本部分は捨てる）。話者ベクトル(campplus)が<b>大域的な同一性</b>、参照melが<b>具体的な声テクスチャ</b>を与え、
+  両方が揃って初めて<b>はっきりした声</b>になります。
+  （だから「話者ベクトルだけ」の補間は弱く、<b>近傍アンカーの連結を手本に添える</b>と効くのです＝§2の結論）。</p>
+
+  <h3>声の物理：音源-フィルタ理論</h3>
+  <p class="small">人の声は <b>音源（声帯振動＝F0）</b> が <b>フィルタ（声道の共鳴＝フォルマント）</b> を通って作られます。
+  F0 は高さ・性別・年齢と、フォルマント（声道の長さ）は体格・性別と相関します。
+  だから「性別」「体格」などの意味軸が、F0・フォルマントという<b>測れる物理量</b>へ対応づけられるのです（§4）。</p>
+</div>
+
+<!-- 7 -->
+<h2>7. 全体フロー</h2>
+<div class="panel">
+  <div class="flow">
+    <div class="step"><span class="n">A</span><b>アンカー準備</b><span>Common Voice 36話者＋JVNV 24<br>→安定区間抽出<br>→属性＆埋め込み事前計算</span></div>
+    <div class="arrow">→</div>
+    <div class="step"><span class="n">B</span><b>デザイン</b><span>スライダー操作<br>→アンカー重み<br>→ブレンド声</span></div>
+    <div class="arrow">→</div>
+    <div class="step"><span class="n">C</span><b>生成</b><span>キャリア音声を<br>Seed-VCで変換<br>(CPU 約40秒)</span></div>
+    <div class="arrow">→</div>
+    <div class="step"><span class="n">D</span><b>試聴・書き出し</b><span>プレビュー再生<br>→ reference.wav</span></div>
+  </div>
+  <p class="small">書き出した <code>reference.wav</code> は、さらに下流（GPT-SoVITS 等）の参照音声としても利用できます。</p>
+</div>
+
+<!-- 8 -->
+<h2>8. 用語ミニ辞典</h2>
+<div class="panel grid2">
+  <div class="card"><h4>F0（基本周波数）</h4><p class="small">声の高さ。性別・年齢・体格と相関。</p></div>
+  <div class="card"><h4>フォルマント</h4><p class="small">声道の共鳴周波数。声道長＝体格・性別の手がかり。</p></div>
+  <div class="card"><h4>HNR（調波雑音比）</h4><p class="small">声の周期成分とノイズの比。高い＝明瞭、低い＝息っぽい。</p></div>
+  <div class="card"><h4>jitter / shimmer</h4><p class="small">周期・振幅の細かなゆらぎ。粗さ・かすれの指標。</p></div>
+  <div class="card"><h4>スペクトル傾斜</h4><p class="small">高域と低域のエネルギ比。明るさ・温かさの手がかり。</p></div>
+  <div class="card"><h4>話者埋め込み(campplus)</h4><p class="small">声質を表すベクトル（“声の指紋”）。ブレンドの対象。</p></div>
+  <div class="card"><h4>mel スペクトログラム</h4><p class="small">音の時間-周波数表現。拡散モデルが生成する中間表現。</p></div>
+  <div class="card"><h4>アンカー</h4><p class="small">声空間の基準となる実在話者。生成声はその間の補間。</p></div>
+</div>
+
+<p class="small" style="text-align:center;margin-top:40px;color:var(--sub)">
+  声のCanva (Voice Canvas) β — エンジン: Seed-VC ／ アンカー: Common Voice 日本語（CC0）36話者＋JVNV 感情音声（CC BY-SA 4.0）24
+</p>
+
+</div>
+</body>
+</html>

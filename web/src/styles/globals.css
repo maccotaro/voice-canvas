@@ -1,0 +1,63 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root { color-scheme: dark; }
+body {
+  background: linear-gradient(180deg, #0b0d17, #0e1020);
+  color: #e8eaf2;
+  font-family: -apple-system, 'Hiragino Kaku Gothic ProN', 'Noto Sans JP', sans-serif;
+}
+/* レンジスライダー（塗り色・つまみ色を軸ごとに --fill で指定可能） */
+input[type='range'] { -webkit-appearance: none; height: 6px; border-radius: 3px; background: #2a2f4d; }
+input[type='range']::-webkit-slider-thumb {
+  -webkit-appearance: none; width: 16px; height: 16px; border-radius: 50%;
+  background: var(--fill, #7c5cff); cursor: pointer;
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--fill, #7c5cff) 25%, transparent);
+}
+input[type='range']::-moz-range-thumb {
+  width: 16px; height: 16px; border: none; border-radius: 50%;
+  background: var(--fill, #7c5cff); cursor: pointer;
+}
+
+/* 似ている声・プレビューの簡易波形バー */
+@keyframes wavepulse { 0%,100% { transform: scaleY(0.5); } 50% { transform: scaleY(1); } }
+
+@layer components {
+  .btn {
+    @apply inline-flex items-center gap-1 px-3 py-1.5 rounded-md bg-panel border border-line text-sm hover:border-accent transition disabled:opacity-50;
+  }
+}
+
+/* 変換中の進み具合（長さが読めないので左右に流す） */
+@keyframes slide { 0% { transform: translateX(-100%); } 100% { transform: translateX(300%); } }
+
+/* つまみ2つの範囲指定（アンカーの絞り込み）。2本の range を重ね、つまみだけ触れるようにする */
+input[type='range'].dual {
+  position: absolute; left: 0; right: 0; top: 50%; transform: translateY(-50%); width: 100%;
+  margin: 0; background: transparent; pointer-events: none;
+}
+input[type='range'].dual::-webkit-slider-thumb { pointer-events: auto; }
+input[type='range'].dual::-moz-range-thumb { pointer-events: auto; }
+input[type='range'].dual::-moz-range-track { background: transparent; }
+
+/* 使い方（マニュアル）の本文 */
+.manual { line-height: 1.85; font-size: 15px; color: #e8eaf2; }
+.manual h1 { font-size: 28px; font-weight: 800; margin: 0 0 16px; }
+.manual h2 { font-size: 22px; font-weight: 800; margin: 48px 0 14px; padding-top: 12px; border-top: 1px solid #2a2f4d; scroll-margin-top: 16px; }
+.manual h3 { font-size: 17px; font-weight: 800; margin: 28px 0 10px; color: #c4b5fd; scroll-margin-top: 16px; }
+.manual p { margin: 10px 0; }
+.manual ul, .manual ol { margin: 10px 0; padding-left: 1.5em; }
+.manual ul { list-style: disc; } .manual ol { list-style: decimal; }
+.manual li { margin: 4px 0; }
+.manual a { color: #27e0c4; text-decoration: underline; }
+.manual strong { color: #fff; }
+.manual code { font-family: 'IBM Plex Mono', ui-monospace, monospace; font-size: 0.9em; background: #1b1f36; border: 1px solid #2a2f4d; border-radius: 6px; padding: 1px 6px; }
+.manual pre { background: #141728; border: 1px solid #2a2f4d; border-radius: 12px; padding: 14px; overflow-x: auto; }
+.manual pre code { background: none; border: none; padding: 0; }
+.manual img { display: block; max-width: 100%; height: auto; margin: 14px 0 6px; border-radius: 14px; border: 1px solid #2a2f4d; }
+.manual table { width: 100%; border-collapse: collapse; margin: 12px 0; font-size: 14px; display: block; overflow-x: auto; }
+.manual th, .manual td { border: 1px solid #2a2f4d; padding: 8px 10px; text-align: left; vertical-align: top; }
+.manual th { background: #1b1f36; }
+.manual blockquote { margin: 12px 0; padding: 10px 14px; border-left: 3px solid #7c5cff; background: #17142e; border-radius: 8px; }
+.manual hr { border: none; border-top: 1px solid #2a2f4d; margin: 28px 0; }

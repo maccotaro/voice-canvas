@@ -1,0 +1,69 @@
+# ---------------------------------------------------------------------------
+# Python 標準
+# ---------------------------------------------------------------------------
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+# Pythonビルド成果物はリポジトリ直下のみ対象（web/src/lib を巻き込まないよう / でアンカー）
+/lib/
+/lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# テスト / 型 / カバレッジ
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+.coverage.*
+htmlcov/
+.tox/
+
+# 仮想環境
+.venv/
+venv/
+env/
+ENV/
+
+# エディタ / OS
+.vscode/
+.idea/
+.DS_Store
+
+# ---------------------------------------------------------------------------
+# プロジェクト固有（生成物・データ）
+# ---------------------------------------------------------------------------
+data/
+features/
+output/
+*.wav
+*.npz
+
+# ただし仕様書は無視しない。
+!memo.md
+# フロントで配信するペルソナ試聴音声はリポジトリに含める（*.wav 除外の例外）
+!web/public/personas/
+!web/public/personas/*.wav
+# 同梱アンカー（CC0。*.npz 除外の例外）
+!anchors/default/
+!anchors/default/**
+external/
+
+# 追加: ニューラルVC関連の重い生成物
+.venv-seedvc/
+.venv-vc/
+checkpoints/
+design/

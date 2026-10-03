@@ -1,0 +1,27 @@
+# 声のCanva 推論サービス依存（Seed-VC + 意味軸デザイン + FastAPI）
+# torch/torchaudio はベースイメージ(CUDA)に合わせて固定。Seed-VC は torch==2.4.0 系で検証。
+torch==2.4.0
+torchaudio==2.4.0
+numpy==1.26.4
+scipy==1.13.1
+librosa==0.10.2
+soundfile
+pyyaml
+munch==4.0.0
+einops==0.8.0
+huggingface-hub>=0.28.1
+transformers==4.46.3
+hydra-core==1.3.2
+accelerate
+descript-audio-codec==1.0.0
+# 意味軸デザインの音響特徴抽出（録音→スライダー / アンカー属性）
+# pyworld は pkg_resources を使うため、setuptools 81 以降（pkg_resources なし）では読み込めない
+setuptools<81
+pyworld
+praat-parselmouth
+# 素材ツールの「BGM・雑音の除去」（MIT。重み約80MBは初回に取得）
+demucs==4.0.1
+# サービス
+fastapi
+uvicorn[standard]
+python-multipart
